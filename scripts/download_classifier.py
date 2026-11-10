@@ -33,12 +33,13 @@ def main():
             raise FileNotFoundError(archive)
         extract(archive, output)
         return
-    with tempfile.NamedTemporaryFile(prefix="phan-cifar-", suffix=".zip") as temporary:
-        downloaded = gdown.download(id=GOOGLE_DRIVE_ID, output=temporary.name, quiet=False)
+    # gdown opens its output for writing; a live NamedTemporaryFile is locked on Windows.
+    with tempfile.TemporaryDirectory(prefix="phan-cifar-") as directory:
+        archive = Path(directory) / "weights.zip"
+        downloaded = gdown.download(id=GOOGLE_DRIVE_ID, output=str(archive), quiet=False)
         if not downloaded:
             raise RuntimeError("Phan classifier archive download failed; use --archive with a local copy")
-        temporary.flush()
-        extract(Path(temporary.name), output)
+        extract(archive, output)
 
 
 if __name__ == "__main__":

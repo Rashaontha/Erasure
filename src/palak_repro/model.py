@@ -8,7 +8,8 @@ from .common import device_for
 
 def load_pipeline(cfg, checkpoint=None):
     device = device_for(cfg["device"])
-    dtype = torch.float16 if device.type in ("cuda", "mps") or cfg.get("variant") == "fp16" else torch.float32
+    # The checkpoint variant selects files; it must not force fp16 arithmetic on CPU.
+    dtype = torch.float16 if device.type in ("cuda", "mps") else torch.float32
     kwargs = {"variant": cfg["variant"]} if cfg.get("variant") else {}
     pipe = StableDiffusionPipeline.from_pretrained(cfg["model_id"], torch_dtype=dtype,
                                                     safety_checker=None, requires_safety_checker=False, **kwargs)

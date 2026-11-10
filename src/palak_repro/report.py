@@ -25,7 +25,9 @@ def make_report(cfg):
         values = [r["asr"] for r in grouped[(method, attack)] if r["asr"] is not None]
         measured = float(np.mean(values)) if values else None
         difference = abs(measured - paper) if measured is not None else None
+        small_sample = any(r.get("n_trigger", 0) < 100 for r in grouped[(method, attack)])
         interpretation = ("NOT MEASURED" if measured is None else
+                          "descriptive pilot; fewer than 100 trigger images" if small_sample else
                           "higher than paper" if measured > paper else
                           "lower than paper" if measured < paper else "matches paper")
         comparison.append({"erasure": method, "attack": attack, "paper_asr": paper,
@@ -39,6 +41,24 @@ def make_report(cfg):
         writer = csv.DictWriter(f, fieldnames=comparison[0].keys())
         writer.writeheader()
         writer.writerows(comparison)
+    per_target = []
+    for target in cfg["targets"]:
+        for (method, attack), paper in PAPER_ASR.items():
+            matches = [r for r in grouped[(method, attack)] if r["target"] == target]
+            row = matches[0] if matches else None
+            measured = row.get("asr") if row else None
+            per_target.append({"target": target, "erasure": method, "attack": attack,
+                               "paper_asr": paper,
+                               "measured_asr": measured if measured is not None else "NOT MEASURED",
+                               "absolute_difference": abs(measured - paper) if measured is not None else "NOT MEASURED",
+                               "n_trigger": row.get("n_trigger", 0) if row else 0,
+                               "observation": ("NOT MEASURED" if measured is None else
+                                               "descriptive pilot; fewer than 100 trigger images"
+                                               if row.get("n_trigger", 0) < 100 else "measured")})
+    with (root / "tables" / "comparison_by_target.csv").open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=per_target[0].keys())
+        writer.writeheader()
+        writer.writerows(per_target)
     for metric, title in (("asr", "Attack success rate (%)"), ("acc_e", "Target accuracy (%)"),
                           ("acc_r", "Retention accuracy (%)"), ("fid", "FID"),
                           ("clipscore", "CLIPScore")):

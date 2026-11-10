@@ -23,6 +23,34 @@ huggingface-cli login  # only if model access requires authentication
 python scripts/download_classifier.py
 ```
 
+On Windows PowerShell, use `python -m venv .venv`, then
+`& .venv\Scripts\python.exe -m pip install -e '.[test]'`. The audited Windows
+machine has no CUDA GPU, so use a suitable GPU host for the complete matrix.
+For a one-image SD 1.4 CPU feasibility run, use
+`& .venv\Scripts\palak-experiments.exe --config configs/windows_cpu_baseline.yaml --stage generate --target bird --attack none --erasure clean`.
+That command creates a baseline image only; it does not measure ASR or the other
+research metrics.
+For the measured one-image bird pilot, use `configs/windows_cpu_quick.yaml` and
+run the `generate` and `evaluate` stages for `none/clean`, `none/uce`, and
+`shallow/uce`, preceded by `inject` for shallow and `erase` for each UCE
+condition. Run `--stage report` afterward. Exact sample counts and outcomes are
+in [docs/verification.md](docs/verification.md).
+
+```powershell
+$exe = '.\.venv\Scripts\palak-experiments.exe'
+$config = 'configs/windows_cpu_quick.yaml'
+& $exe --config $config --stage generate --target bird --attack none --erasure clean
+& $exe --config $config --stage evaluate --target bird --attack none --erasure clean
+& $exe --config $config --stage erase --target bird --attack none --erasure uce
+& $exe --config $config --stage generate --target bird --attack none --erasure uce
+& $exe --config $config --stage evaluate --target bird --attack none --erasure uce
+& $exe --config $config --stage inject --target bird --attack shallow
+& $exe --config $config --stage erase --target bird --attack shallow --erasure uce
+& $exe --config $config --stage generate --target bird --attack shallow --erasure uce
+& $exe --config $config --stage evaluate --target bird --attack shallow --erasure uce
+& $exe --config $config --stage report
+```
+
 The base model ID is `CompVis/stable-diffusion-v1-4` in the YAML file. Its model
 weights download on first use. Download Phan's pretrained CIFAR-10 ResNet-18
 state dict before evaluation. See [data/README.md](data/README.md) for COCO 2014
@@ -87,14 +115,22 @@ experimental results until model runs complete.
 
 ## Current verification status
 
-The unit tests and tiny-model CPU smoke pass. Tiny-model attack, erasure,
-checkpoint, and generation paths have also run. The SD 1.4 baseline download
-was stopped before completion, and the Phan weights and COCO images are not
-present. Consequently, SD 1.4 ASR, target accuracy, retention accuracy, FID,
-and CLIPScore are all **NOT MEASURED**. See [docs/verification.md](docs/verification.md)
-for the executed checks. The tiny-model images and checkpoints under
-`results/tiny/` and `checkpoints/tiny/` are integration artifacts, not research
-results.
+The earlier macOS unit tests and tiny-model integration checks are recorded in
+[docs/verification.md](docs/verification.md). On the current Windows machine,
+Python 3.11 is present but the initial environment has no PyTorch or pytest;
+installation and research execution status are recorded there separately.
+SD 1.4 was downloaded into the local Hugging Face cache, and Phan's classifier
+weights were extracted into `data/classifier/`. COCO images are still absent.
+A reduced bird pilot completed three conditions (clean, no-attack UCE, and
+EEBshallow plus UCE), each with one target and one trigger image at 20 DDIM
+steps. The classifier gave target accuracy 1/1 and trigger ASR 0/1 in all
+three. These are **single-image observations**, not research estimates; the
+UCE target remained classified as bird. The standard 100-image six-condition
+matrix, retention accuracy, FID, and CLIPScore are still **NOT MEASURED**.
+Tiny-model artifacts are integration checks,
+not research results. Existing checkpoints and result folders now require
+matching configuration metadata before being resumed; use a new output and
+checkpoint directory when changing experiment settings.
 
 ## References
 
